@@ -50,6 +50,8 @@ permalink: /index.html
 
 
 
+- [Как читать мониторинг скрытых товаров](https://kos-company.github.io/kos-rules/guide/blocked-monitor.html)
+
 ## Промпты
 
 - [Проверка текстов карточек](https://kos-company.github.io/kos-rules/prompts/text-checker.html)
