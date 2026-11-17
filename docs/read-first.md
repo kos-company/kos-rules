@@ -1,5 +1,7 @@
 ---
 layout: null
+permalink: /read-first.html
+lang: ru
 title: Правила КОС
 ---
 
