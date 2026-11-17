@@ -5,6 +5,8 @@ $patterns = [ordered]@{
     'телефон' = '(?<![\w.])(?:\+\d{1,3}|8)[ -]?\(?\d{3}\)?[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\w)'
     'токен' = '(?i)\b(?:sk-[\w-]{12,}|AIza[\w-]{20,}|gh[pousr]_[\w-]{20,}|github_pat_[\w-]{20,}|Bearer\s+[\w.=-]{12,})'
     'длинный код' = '(?<![\w-])[A-Za-z0-9+/_=-]{48,}(?![\w-])'
+    'устаревшая ссылка' = '(?i)raw\.githubusercontent\.com/|github\.com/[^/]+/[^/]+/blob/'
+    'личное имя проекта' = '(?i)\b(?:Степан|Ефимов|Максим|Сысоев|Ренат|Ксени|Виля|Виле|Илья|Вика|Эльвин)[а-яё]*\b'
     'ссылка Google с ID' = '(?i)https?://(?:docs|drive)\.google\.com/[^\s)>]*[\w-]{20,}'
 }
 $closed = if ($ClosedIdList) { @(Get-Content -LiteralPath $ClosedIdList | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @() }
@@ -41,6 +43,22 @@ foreach ($path in $paths) {
             }
         }
     }
+}
+$site = 'https://kos-company.github.io/kos-rules/'
+$routes = @{'index.html' = $true}
+$pages = @(Get-ChildItem -LiteralPath (Join-Path $homePath 'docs') -Recurse -Filter '*.md')
+foreach ($page in $pages) {
+    $route = [regex]::Match([IO.File]::ReadAllText($page.FullName), '(?m)^permalink: /([a-z0-9/-]+\.html)\s*$')
+    if (!$route.Success) { throw "У страницы нет латинского адреса: $($page.Name)" }
+    $routes[$route.Groups[1].Value] = $true
+}
+foreach ($page in $pages) {
+    foreach ($m in [regex]::Matches([IO.File]::ReadAllText($page.FullName), [regex]::Escape($site)+'([a-z0-9/-]+\.html)', 'IgnoreCase')) {
+        if (!$routes.ContainsKey($m.Groups[1].Value)) { throw "Ссылка Pages без страницы: $($page.Name)" }
+    }
+}
+foreach ($path in $paths) {
+    if ($path -notmatch '^[a-zA-Z0-9._/-]+$') { throw 'Нелатинское имя файла' }
 }
 if ($issues) { exit 1 }
 Write-Output "Автопроверка прошла ($($paths.Count) файлов). Проверьте также смысл и контекст изменений."
