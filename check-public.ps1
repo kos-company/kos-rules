@@ -1,0 +1,46 @@
+param([string]$Root = $PSScriptRoot, [string]$ClosedIdList = '')
+$ErrorActionPreference = 'Stop'
+$patterns = [ordered]@{
+    'email' = '(?i)\b[A-Z0-9.!#$%&*+/=?^_{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b'
+    'телефон' = '(?<![\w.])(?:\+\d{1,3}|8)[ -]?\(?\d{3}\)?[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}(?!\w)'
+    'токен' = '(?i)\b(?:sk-[\w-]{12,}|AIza[\w-]{20,}|gh[pousr]_[\w-]{20,}|github_pat_[\w-]{20,}|Bearer\s+[\w.=-]{12,})'
+    'длинный код' = '(?<![\w-])[A-Za-z0-9+/_=-]{48,}(?![\w-])'
+    'ссылка Google с ID' = '(?i)https?://(?:docs|drive)\.google\.com/[^\s)>]*[\w-]{20,}'
+}
+$closed = if ($ClosedIdList) { @(Get-Content -LiteralPath $ClosedIdList | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @() }
+$issues = 0
+$homePath = (Resolve-Path -LiteralPath $Root).Path
+$repo = Test-Path -LiteralPath (Join-Path $homePath '.git')
+if ($repo) {
+    $paths = @(git -c core.quotepath=false -C $homePath ls-files)
+    if ($LASTEXITCODE) { throw 'Не удалось прочитать список файлов Git' }
+} else {
+    $paths = @(Get-ChildItem -LiteralPath $homePath -Recurse -File | ForEach-Object { [IO.Path]::GetRelativePath($homePath, $_.FullName) })
+}
+foreach ($path in $paths) {
+    if ($path -in @('check-public.ps1','hooks/pre-push')) { continue }
+    $file = Join-Path $homePath $path
+    if ([IO.Path]::GetExtension($file) -notin @('.md','.txt','.yml','.yaml','.json')) {
+        Write-Output "${path}: неожиданный формат"
+        $issues++
+        continue
+    }
+    $lineNo = 0
+    foreach ($line in Get-Content -LiteralPath $file -Encoding utf8) {
+        $lineNo++
+        foreach ($entry in $patterns.GetEnumerator()) {
+            if ($line -match $entry.Value) {
+                Write-Output "${path}:${lineNo} · $($entry.Key)"
+                $issues++
+            }
+        }
+        foreach ($id in $closed) {
+            if ($line.Contains($id)) {
+                Write-Output "${path}:${lineNo} · ID закрытого файла"
+                $issues++
+            }
+        }
+    }
+}
+if ($issues) { exit 1 }
+Write-Output "Автопроверка прошла ($($paths.Count) файлов). Проверьте также смысл и контекст изменений."
