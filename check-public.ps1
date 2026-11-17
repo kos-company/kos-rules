@@ -31,6 +31,12 @@ foreach ($path in $paths) {
     foreach ($line in Get-Content -LiteralPath $file -Encoding utf8) {
         $lineNo++
         foreach ($entry in $patterns.GetEnumerator()) {
+            # Owner-approved routing rule names the owner without personal records.
+            if ($entry.Key -eq 'личное имя проекта' -and
+                $path.Replace('\','/') -in @('00_READ_FIRST.md','docs/read-first.md') -and
+                $line -ceq '1.10. Отчёты по личным задачам Степана (его ПК, дом, сеть) сохраняй в его личном хабе C:\AI-HUB\inbox.') {
+                continue
+            }
             if ($line -match $entry.Value) {
                 Write-Output "${path}:${lineNo} · $($entry.Key)"
                 $issues++
